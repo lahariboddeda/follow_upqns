@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Interview Simulator | Master AI & ML Concepts</title>
+  <link rel="stylesheet" href="styles.css">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+
+<body>
+
+  <div class="interview-container">
+    <div class="interview-header">
+      <h1>
+        <i class="fas fa-microphone-alt"></i>
+        AI Interview Simulator
+      </h1>
+      <p><i class="fas fa-brain"></i> Realistic AI & ML technical interview — practice with intelligent feedback</p>
+    </div>
+
+    <div class="interview-body">
+      <!-- topic selection area -->
+      <div class="topic-panel">
+        <div class="topic-label">
+          <i class="fas fa-tag"></i>
+          <span>Select domain</span>
+        </div>
+        <select id="topicSelect"></select>
+        <button class="btn-start" onclick="startInterview()">
+          <i class="fas fa-play"></i> Start Interview
+        </button>
+      </div>
+
+      <!-- dynamic progress & question -->
+      <div class="progress-card">
+        <div class="progress-text" id="progress">
+          <i class="far fa-clock"></i> Not started
+        </div>
+        <div class="badge" id="scoreBadge" style="display: none;">
+          <i class="fas fa-chart-line"></i> Score: —
+        </div>
+      </div>
+
+      <div class="question-card">
+        <div class="question-icon">
+          <i class="fas fa-question-circle"></i>
+          <span>Interview question</span>
+        </div>
+        <div id="question">
+          <i class="fas fa-info-circle"></i> Press "Start Interview" to begin
+        </div>
+      </div>
+
+      <div class="answer-section">
+        <div class="answer-label">
+          <i class="fas fa-keyboard"></i> Your answer
+        </div>
+        <textarea id="answer" rows="4"
+          placeholder="Share your detailed answer here... (e.g., explain concepts, give examples, or describe algorithms)"></textarea>
+        <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
+          <button class="btn-submit" onclick="submitAnswer()">
+            <i class="fas fa-paper-plane"></i> Submit Answer
+          </button>
+        </div>
+      </div>
+
+      <!-- result feedback area -->
+      <div class="result-card">
+        <i class="fas fa-comment-dots" style="color: #2c6e9e; margin-right: 6px;"></i>
+        <span style="font-weight: 600;">AI Evaluator</span>
+        <div id="result">✨ Ready to evaluate. Complete the interview questions.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Backend API endpoints (adjust port if needed)
+    const API_BASE_URL = "http://127.0.0.1:5000";
+
+    // Load topics from backend
+    async function loadTopics() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/topics`);
+        const data = await res.json();
+        const select = document.getElementById("topicSelect");
+        select.innerHTML = "";
+        data.topics.forEach(topic => {
+          const option = document.createElement("option");
+          option.value = topic;
+          option.text = topic;
+          select.appendChild(option);
+        });
+      } catch (error) {
+        console.error("Error loading topics:", error);
+        document.getElementById("result").innerHTML = "⚠️ Cannot connect to backend. Make sure app.py is running.";
+      }
+    }
+
+    // Start interview with backend
+    async function startInterview() {
+      const topic = document.getElementById("topicSelect").value;
+      if (!topic) {
+        document.getElementById("result").innerHTML = "⚠️ Please select a topic.";
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/start`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topic: topic })
+        });
+
+        const data = await res.json();
+        document.getElementById("question").innerHTML = `<i class="fas fa-microphone"></i> ${data.question}`;
+        document.getElementById("progress").innerHTML = `<i class="fas fa-chart-simple"></i> ${data.progress}`;
+        document.getElementById("result").innerHTML = "🎤 Interview started! Provide your answer.";
+        document.getElementById("answer").value = "";
+        document.getElementById("answer").disabled = false;
+
+        const badge = document.getElementById("scoreBadge");
+        badge.style.display = "flex";
+        badge.innerHTML = `<i class="fas fa-chart-line"></i> In Progress`;
+      } catch (error) {
+        console.error("Error starting interview:", error);
+        document.getElementById("result").innerHTML = "⚠️ Failed to start interview. Check backend connection.";
+      }
+    }
+
+    // Submit answer to backend
+    async function submitAnswer() {
+      const answer = document.getElementById("answer").value;
+      if (!answer.trim()) {
+        document.getElementById("result").innerHTML = "📝 Please type your answer before submitting.";
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/answer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ answer: answer })
+        });
+
+        const data = await res.json();
+
+        // Display result and follow-up if any
+        let resultText = data.result;
+        if (data.follow_up) {
+          resultText += `<br><i class="fas fa-lightbulb"></i> <strong>Follow-up:</strong> ${data.follow_up}`;
+        }
+        document.getElementById("result").innerHTML = `<i class="fas fa-robot"></i> ${resultText}`;
+
+        if (data.next_question) {
+          document.getElementById("question").innerHTML = `<i class="fas fa-microphone"></i> ${data.next_question}`;
+          document.getElementById("progress").innerHTML = `<i class="fas fa-chart-simple"></i> ${data.progress}`;
+          document.getElementById("answer").value = "";
+        } else if (data.message) {
+          document.getElementById("question").innerHTML = `<i class="fas fa-flag-checkered"></i> Interview Complete!`;
+          document.getElementById("progress").innerHTML = `<i class="fas fa-star"></i> ${data.message}`;
+          document.getElementById("scoreBadge").innerHTML = `<i class="fas fa-award"></i> Final: ${data.final_score}`;
+          document.getElementById("answer").disabled = true;
+        }
+      } catch (error) {
+        console.error("Error submitting answer:", error);
+        document.getElementById("result").innerHTML = "⚠️ Failed to submit answer. Check backend connection.";
+      }
+    }
+
+    // Load topics when page loads
+    loadTopics();
+
+    // Make functions globally available
+    window.startInterview = startInterview;
+    window.submitAnswer = submitAnswer;
+  </script>
+</body>
+
+</html>
